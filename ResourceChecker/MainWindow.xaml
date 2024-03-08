@@ -1,0 +1,71 @@
+<Window
+    x:Class="ResourceChecker.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:ResourceChecker"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Name="Window"
+    Title="Resource Checker"
+    Width="800"
+    Height="450"
+    mc:Ignorable="d">
+    <Window.Resources>
+        <local:RedWhenFalseConverter x:Key="RedWhenFalseConverter" />
+    </Window.Resources>
+    <DockPanel Margin="10">
+        <DockPanel Dock="Top">
+            <Button Click="ButtonBase_OnClick" DockPanel.Dock="Right">Scan Strings</Button>
+            <Rectangle
+                Width="10"
+                Height="10"
+                DockPanel.Dock="Right" />
+            <TextBox x:Name="PathTextBox" Text="..\src" />
+        </DockPanel>
+        <Rectangle
+            Width="10"
+            Height="10"
+            DockPanel.Dock="Top" />
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+            <CheckBox
+                x:Name="CheckBox"
+                Click="CheckBox_OnClick"
+                Content="See all resources" />
+            <Rectangle Width="10" Height="10" />
+            <Button Click="ExpandAll_OnClick" Content="Expand All" />
+            <Rectangle Width="10" Height="10" />
+            <Button Click="CollapseAll_OnClick" Content="Collapse All" />
+            <Rectangle Width="10" Height="10" />
+            <Button Click="OutputToFile_OnClick" Content="Output to File" />
+        </StackPanel>
+        <Rectangle
+            Width="10"
+            Height="10"
+            DockPanel.Dock="Top" />
+        <TreeView x:Name="TreeView">
+            <TreeView.ItemContainerStyle>
+                <Style TargetType="TreeViewItem">
+                    <Style.Setters>
+                        <Setter Property="IsExpanded" Value="{Binding ExpandAll, ElementName=Window}" />
+                        <EventSetter Event="MouseDoubleClick" Handler="OnTreeViewItemDoubleClick" />
+                    </Style.Setters>
+                </Style>
+            </TreeView.ItemContainerStyle>
+            <TreeView.ItemTemplate>
+                <HierarchicalDataTemplate DataType="{x:Type local:LanguageItem}" ItemsSource="{Binding Resources.Values}">
+                    <HierarchicalDataTemplate.ItemTemplate>
+                        <HierarchicalDataTemplate DataType="{x:Type local:ResourceFileItem}" ItemsSource="{Binding ResourceItems.Values}">
+                            <HierarchicalDataTemplate.ItemTemplate>
+                                <DataTemplate DataType="{x:Type local:ResourceItem}">
+                                    <TextBlock Background="{Binding Existed, Converter={StaticResource RedWhenFalseConverter}}" Text="{Binding Name}" />
+                                </DataTemplate>
+                            </HierarchicalDataTemplate.ItemTemplate>
+                            <TextBlock Background="{Binding Existed, Converter={StaticResource RedWhenFalseConverter}}" Text="{Binding DisplayName}" />
+                        </HierarchicalDataTemplate>
+                    </HierarchicalDataTemplate.ItemTemplate>
+                    <TextBlock Text="{Binding DisplayName}" />
+                </HierarchicalDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+    </DockPanel>
+</Window>
