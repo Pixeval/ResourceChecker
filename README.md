@@ -1,1 +1,1 @@
-# MsixInstaller
+# ResourceChecker
