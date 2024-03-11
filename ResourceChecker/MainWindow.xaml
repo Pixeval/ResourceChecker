@@ -13,75 +13,85 @@
     <Window.Resources>
         <local:ExistedToTypeConverter x:Key="ExistedToTypeConverter" />
     </Window.Resources>
-    <DockPanel Margin="10">
+    <DockPanel Margin="5">
         <DockPanel Dock="Top">
             <Button
+                Margin="5"
                 Click="ButtonBase_OnClick"
                 Content="Scan Strings"
                 DockPanel.Dock="Right" />
-            <Rectangle
-                Width="10"
-                Height="10"
-                DockPanel.Dock="Right" />
             <TextBox
                 x:Name="DefaultLanguageTextBox"
+                MinWidth="40"
+                Margin="5"
                 DockPanel.Dock="Right"
                 Text="zh-cn" />
-            <Rectangle
-                Width="10"
-                Height="10"
-                DockPanel.Dock="Right" />
-            <TextBlock DockPanel.Dock="Right" Text="Default:" />
-            <Rectangle
-                Width="10"
-                Height="10"
-                DockPanel.Dock="Right" />
-            <TextBox x:Name="PathTextBox" Text="..\..\..\..\..\Pixeval\src\Pixeval\Strings" />
+            <TextBlock
+                Margin="5"
+                DockPanel.Dock="Right"
+                Text="Default:" />
+            <TextBox
+                x:Name="PathTextBox"
+                Margin="5"
+                Text="..\..\..\..\..\Pixeval\src\Pixeval\Strings" />
         </DockPanel>
-        <Rectangle
-            Width="10"
-            Height="10"
-            DockPanel.Dock="Top" />
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
             <CheckBox
                 x:Name="CheckBox"
+                Margin="5"
                 Click="CheckBox_OnClick"
                 Content="See all resources" />
-            <Rectangle Width="10" Height="10" />
-            <Button Click="ExpandAll_OnClick" Content="Expand All" />
-            <Rectangle Width="10" Height="10" />
-            <Button Click="CollapseAll_OnClick" Content="Collapse All" />
-            <Rectangle Width="10" Height="10" />
-            <Button Click="OutputToFile_OnClick" Content="Output to File" />
+            <Button
+                Margin="5"
+                Click="ExpandAll_OnClick"
+                Content="Expand All" />
+            <Button
+                Margin="5"
+                Click="CollapseAll_OnClick"
+                Content="Collapse All" />
+            <Button
+                Margin="5"
+                Click="OutputToFile_OnClick"
+                Content="Output to File" />
         </StackPanel>
-        <Rectangle
-            Width="10"
-            Height="10"
-            DockPanel.Dock="Top" />
-        <TreeView x:Name="TreeView">
-            <TreeView.ItemContainerStyle>
-                <Style TargetType="TreeViewItem">
-                    <Style.Setters>
-                        <Setter Property="IsExpanded" Value="{Binding ExpandAll, ElementName=Window}" />
-                        <EventSetter Event="MouseDoubleClick" Handler="OnTreeViewItemDoubleClick" />
-                    </Style.Setters>
-                </Style>
-            </TreeView.ItemContainerStyle>
-            <TreeView.ItemTemplate>
-                <HierarchicalDataTemplate DataType="{x:Type local:LanguageItem}" ItemsSource="{Binding Resources.Values}">
-                    <HierarchicalDataTemplate.ItemTemplate>
-                        <HierarchicalDataTemplate DataType="{x:Type local:ResourceFileItem}" ItemsSource="{Binding ResourceItems.Values}">
-                            <HierarchicalDataTemplate.ItemTemplate>
-                                <DataTemplate DataType="{x:Type local:ResourceItem}">
-                                    <TextBlock Background="{Binding Existed, Converter={StaticResource ExistedToTypeConverter}}" Text="{Binding Name}" />
-                                </DataTemplate>
-                            </HierarchicalDataTemplate.ItemTemplate>
-                            <TextBlock Background="{Binding Existed, Converter={StaticResource ExistedToTypeConverter}}" Text="{Binding DisplayName}" />
-                        </HierarchicalDataTemplate>
-                    </HierarchicalDataTemplate.ItemTemplate>
-                    <TextBlock Text="{Binding DisplayName}" />
-                </HierarchicalDataTemplate>
-            </TreeView.ItemTemplate>
-        </TreeView>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TreeView
+                x:Name="TreeView"
+                Grid.Column="0"
+                Margin="5"
+                SelectedItemChanged="TreeView_OnSelectedItemChanged">
+                <TreeView.ItemContainerStyle>
+                    <Style TargetType="TreeViewItem">
+                        <Style.Setters>
+                            <Setter Property="IsExpanded" Value="{Binding ExpandAll, ElementName=Window}" />
+                            <EventSetter Event="MouseDoubleClick" Handler="OnTreeViewItemDoubleClick" />
+                        </Style.Setters>
+                    </Style>
+                </TreeView.ItemContainerStyle>
+                <TreeView.ItemTemplate>
+                    <HierarchicalDataTemplate DataType="{x:Type local:LanguageItem}" ItemsSource="{Binding Resources.Values}">
+                        <HierarchicalDataTemplate.ItemTemplate>
+                            <HierarchicalDataTemplate DataType="{x:Type local:ResourceFileItem}" ItemsSource="{Binding ResourceItems.Values}">
+                                <HierarchicalDataTemplate.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type local:ResourceItem}">
+                                        <TextBlock Background="{Binding Existed, Converter={StaticResource ExistedToTypeConverter}}" Text="{Binding Name}" />
+                                    </DataTemplate>
+                                </HierarchicalDataTemplate.ItemTemplate>
+                                <TextBlock Background="{Binding Existed, Converter={StaticResource ExistedToTypeConverter}}" Text="{Binding DisplayName}" />
+                            </HierarchicalDataTemplate>
+                        </HierarchicalDataTemplate.ItemTemplate>
+                        <TextBlock Text="{Binding DisplayName}" />
+                    </HierarchicalDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+            <ScrollViewer
+                x:Name="ScrollViewer"
+                Grid.Column="1"
+                VerticalScrollBarVisibility="Auto" />
+        </Grid>
     </DockPanel>
 </Window>
