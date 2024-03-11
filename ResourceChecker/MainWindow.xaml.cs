@@ -8,12 +8,14 @@ using System.Linq;
 using System.Resources;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Xml.Linq;
+using System.Xml.Schema;
 using System.Xml.XPath;
 
 using Microsoft.Win32;
@@ -33,7 +35,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         button.IsEnabled = false;
         try
         {
-            // ..\..\..\..\..\Pixeval\src
+            // ..\..\..\..\..\Pixeval\src\Pixeval\Strings
 
             var directory = new DirectoryInfo(PathTextBox.Text);
             if (!directory.Exists)
@@ -50,93 +52,129 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             var langDict = new Dictionary<string, LanguageItem>();
 
-            foreach (var stringsDirectory in directory.EnumerateDirectories("Strings", SearchOption.AllDirectories))
-                foreach (var enumerateDirectory in stringsDirectory.EnumerateDirectories())
+            var defaultLang = null as LanguageItem;
+
+            // Get all language directories (zh-cn, ru-ru, etc)
+            foreach (var enumerateDirectory in directory.EnumerateDirectories())
+            {
+                var langName = enumerateDirectory.Name;
+                langDict[langName] = new LanguageItem(enumerateDirectory.FullName, langName);
+                if (langName == DefaultLanguageTextBox.Text)
+                    defaultLang = langDict[langName];
+            }
+
+            if (defaultLang is null)
+            {
+                _ = MessageBox.Show(
+                    $"""
+                     Default language not found:
+                     {DefaultLanguageTextBox.Text}
+                                                              
+                     Please specify the default language.
+                     """, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            var otherLang = langDict.Values.Where(t => t != defaultLang).ToArray();
+
+            // scan all files in default language
+            var defaultLangDirectory = new DirectoryInfo(defaultLang.FullName);
+            foreach (var file in defaultLangDirectory.EnumerateFiles())
+            {
+                var extension = file.Extension;
+
+                if (extension is not ".resw" and not ".resjson" || file.Length is 0)
+                    continue;
+
+                var fileName = file.Name;
+
+                var currentFile = defaultLang.Resources[fileName] = new ResourceFileItem(file.FullName, fileName, ExistedType.Existed);
+
+                var otherFiles = new List<ResourceFileItem>();
+
+                // ReSharper disable once LoopCanBeConvertedToQuery
+                foreach (var languageItem in otherLang)
                 {
-                    var langName = enumerateDirectory.Name;
+                    // ".\Strings\ru-ru" + "\" + fileName
+                    var fullName = languageItem.FullName + "\\" + fileName;
+                    otherFiles.Add(languageItem.Resources[fileName] = new ResourceFileItem(fullName, fileName, ExistedType.Missing));
+                }
 
-                    var currentLang = langDict.TryGetValue(langName, out LanguageItem? value1)
-                        ? value1
-                        : langDict[langName]
-                            = langDict.Count is 0
-                                ? new(enumerateDirectory.FullName, langName)
-                                : langDict.First().Value.Clone(enumerateDirectory.FullName, langName);
+                await ParseReadAsync(file, AddResource);
 
-                    foreach (var file in enumerateDirectory.EnumerateFiles("*", SearchOption.AllDirectories))
-                    {
-                        var extension = file.Extension;
+                continue;
 
-                        if (extension is not ".resw" and not ".resjson")
-                            continue;
+                void AddResource(string name, string value)
+                {
+                    currentFile.ResourceItems[name] = new(name, value, ExistedType.Existed);
 
-                        var fileName = file.Name;
+                    foreach (var otherFile in otherFiles)
+                        otherFile.ResourceItems[name] = new ResourceItem(name, null, ExistedType.Missing);
+                }
+            }
 
-                        List<ResourceFileItem> allFiles;
+            // scan all files in other languages
+            foreach (var langItem in otherLang)
+            {
+                var otherLangDirectory = new DirectoryInfo(langItem.FullName);
+                foreach (var file in otherLangDirectory.EnumerateFiles())
+                {
+                    var extension = file.Extension;
 
-                        if (currentLang.Resources.TryGetValue(fileName, out var currentFile))
-                        {
-                            currentFile.Existed = true;
-                            allFiles = langDict.Values.Select(x => x.Resources[fileName]).ToList();
-                        }
-                        else
-                        {
-                            allFiles = [];
-                            foreach (var item in langDict)
-                            {
-                                bool curr = Equals(item.Value, currentLang);
-                                var newFile = item.Value.Resources[fileName] = new(file.FullName, fileName, curr);
-                                allFiles.Add(newFile);
-                                if (curr)
-                                    currentFile = newFile;
-                            }
-                        }
-
-                        switch (extension)
-                        {
-                            case ".resw":
-                                {
-                                    var doc = XDocument.Load(file.OpenRead());
-
-                                    if (doc.XPathSelectElements("//data") is { } elements)
-                                        foreach (var node in elements)
-                                            AddResource(node.Attribute("name")!.Value, node.Element("value")!.Value);
-                                    break;
-                                }
-                            case ".resjson":
-                                {
-                                    var doc = await JsonDocument.ParseAsync(file.OpenRead());
-
-                                    if (doc.RootElement.EnumerateObject() is var elements)
-                                        foreach (var node in elements)
-                                            AddResource(node.Name, node.Value.GetString()!);
-                                    break;
-                                }
-                        }
-
+                    if (extension is not ".resw" and not ".resjson" || file.Length is 0)
                         continue;
 
-                        void AddResource(string name, string value)
+                    var fileName = file.Name;
+
+                    if (langItem.Resources.TryGetValue(fileName, out var currentFile))
+                        currentFile.Existed = ExistedType.Existed;
+                    else
+                        currentFile = langItem.Resources[fileName] = new ResourceFileItem(file.FullName, fileName, ExistedType.Redundant);
+
+                    await ParseReadAsync(file, AddResource);
+
+                    continue;
+
+                    void AddResource(string name, string value)
+                    {
+                        if (currentFile.ResourceItems.TryGetValue(name, out var resourceItem))
                         {
-                            if (currentFile!.ResourceItems.TryGetValue(name, out var resourceItem))
-                            {
-                                resourceItem.Existed = true;
-                                resourceItem.Value = value;
-                            }
-                            else
-                            {
-                                foreach (var resourceFileItem in allFiles)
-                                {
-                                    resourceFileItem.ResourceItems[name] = Equals(resourceFileItem, currentFile)
-                                        ? new(name, value, true)
-                                        : new ResourceItem(name, null, false);
-                                }
-                            }
+                            resourceItem.Existed = ExistedType.Existed;
+                            resourceItem.Value = value;
                         }
+                        else
+                            currentFile.ResourceItems[name] = new ResourceItem(name, value, ExistedType.Redundant);
                     }
                 }
+            }
 
             All = langDict.Values;
             NotExists = All.Select(t => t.CloneNotExists()).Where(t => t is not null)!;
+
+            async Task ParseReadAsync(FileInfo file, Action<string, string> addResource)
+            {
+                switch (file.Extension)
+                {
+                    case ".resw":
+                        {
+                            var doc = XDocument.Load(file.OpenRead());
+
+                            if (doc.XPathSelectElements("//data") is { } elements)
+                                foreach (var node in elements)
+                                    addResource(node.Attribute("name")!.Value, node.Element("value")!.Value);
+                            break;
+                        }
+                    case ".resjson":
+                        {
+                            var doc = await JsonDocument.ParseAsync(file.OpenRead());
+
+                            if (doc.RootElement.EnumerateObject() is var elements)
+                                foreach (var node in elements)
+                                    addResource(node.Name, node.Value.GetString()!);
+                            break;
+                        }
+                }
+            }
         }
         finally
         {
@@ -164,9 +202,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             var messageBoxResult = MessageBox.Show(
                 $"""
-                Error occured when opening file/folder:
+                Error occured when opening file / folder:
                 {filepath}
-                
+
                 Copy path?
                 """, "Error", MessageBoxButton.YesNo, MessageBoxImage.Error);
             if (messageBoxResult is MessageBoxResult.Yes)
@@ -178,6 +216,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (sender is TreeViewItem { IsSelected: true, DataContext: IFullName obj })
             OpenFile(obj.FullName);
+
+        if (sender is TreeViewItem { IsSelected: true, DataContext: ResourceItem item })
+            Clipboard.SetText(item.Name);
     }
 
     private void CheckBox_OnClick(object sender, RoutedEventArgs e)
@@ -230,11 +271,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 }
 
-public class RedWhenFalseConverter : IValueConverter
+public class ExistedToTypeConverter : IValueConverter
 {
+    public object? Obj { get; set; }
+
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        return value is false ? new SolidColorBrush(Colors.Red) : null;
+        return value switch
+        {
+            ExistedType.Missing => new SolidColorBrush(Colors.Red),
+            ExistedType.Redundant => new(Colors.Blue),
+            _ => null
+        };
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
@@ -251,16 +299,6 @@ public class LanguageItem(string fullName, string displayName) : IFullName
 
     public Dictionary<string, ResourceFileItem> Resources { get; } = [];
 
-    public LanguageItem Clone(string fullName, string displayName)
-    {
-        var clone = new LanguageItem(fullName, displayName);
-        foreach (var resourceFileItem in Resources)
-        {
-            clone.Resources[resourceFileItem.Key] = resourceFileItem.Value.Clone();
-        }
-        return clone;
-    }
-
     public LanguageItem? CloneNotExists()
     {
         var clone = new LanguageItem(FullName, DisplayName);
@@ -273,26 +311,13 @@ public class LanguageItem(string fullName, string displayName) : IFullName
     public override string ToString() => Resources.Aggregate($"{DisplayName} ({FullName})\n", (current, resource) => current + resource.Value);
 }
 
-public class ResourceFileItem(string fullName, string displayName, bool existed) : IFullName
+public class ResourceFileItem(string fullName, string displayName, ExistedType existed) : ExistedTypeBase(existed), IFullName
 {
     public string FullName { get; } = fullName;
 
     public string DisplayName { get; } = displayName;
 
-    public bool Existed { get; set; } = existed;
-
     public Dictionary<string, ResourceItem> ResourceItems { get; } = [];
-
-    public ResourceFileItem Clone()
-    {
-        var clone = new ResourceFileItem(FullName, DisplayName, false);
-        foreach (var resourceItem in ResourceItems)
-        {
-            clone.ResourceItems[resourceItem.Key] = resourceItem.Value.Clone();
-        }
-
-        return clone;
-    }
 
     public ResourceFileItem? CloneNotExists()
     {
@@ -303,31 +328,42 @@ public class ResourceFileItem(string fullName, string displayName, bool existed)
         return clone.ResourceItems.Count is 0 ? null : clone;
     }
 
-    public override string ToString() => ResourceItems.Aggregate($"    {DisplayName} ({FullName}){(Existed ? "" : " (not existed)")}\n", (current, resource) => current + resource.Value);
+    public override string ToString() => ResourceItems.Aggregate($"    {DisplayName} ({FullName}){(IsExisted ? "" : $" ({Existed})")}\n", (current, resource) => current + resource.Value);
 }
 
-public class ResourceItem(string name, string? value, bool existed)
+public class ResourceItem(string name, string? value, ExistedType existed) : ExistedTypeBase(existed)
 {
     public string Name { get; } = name;
 
     public string? Value { get; set; } = value;
 
-    public bool Existed { get; set; } = existed;
-
-    public ResourceItem Clone()
-    {
-        return new(Name, null, false);
-    }
-
     public ResourceItem? CloneNotExists()
     {
-        return Existed ? null : new ResourceItem(Name, Value, Existed);
+        return IsExisted ? null : new ResourceItem(Name, Value, Existed);
     }
 
-    public override string ToString() => $"        {Name}{(Existed ? "" : " (not existed)")}\n";
+    public override string ToString() => $"        {Name}{(IsExisted ? "" : $" ({Existed})")}\n";
 }
 
 public interface IFullName
 {
     string FullName { get; }
+}
+
+public enum ExistedType
+{
+    Existed,
+    Redundant,
+    Missing
+}
+
+public abstract class ExistedTypeBase(ExistedType existed)
+{
+    public ExistedType Existed { get; set; } = existed;
+
+    public bool IsRedundant => Existed is ExistedType.Redundant;
+
+    public bool IsMissing => Existed is ExistedType.Missing;
+
+    public bool IsExisted => Existed is ExistedType.Existed;
 }

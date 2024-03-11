@@ -11,16 +11,32 @@
     Height="450"
     mc:Ignorable="d">
     <Window.Resources>
-        <local:RedWhenFalseConverter x:Key="RedWhenFalseConverter" />
+        <local:ExistedToTypeConverter x:Key="ExistedToTypeConverter" />
     </Window.Resources>
     <DockPanel Margin="10">
         <DockPanel Dock="Top">
-            <Button Click="ButtonBase_OnClick" DockPanel.Dock="Right">Scan Strings</Button>
+            <Button
+                Click="ButtonBase_OnClick"
+                Content="Scan Strings"
+                DockPanel.Dock="Right" />
             <Rectangle
                 Width="10"
                 Height="10"
                 DockPanel.Dock="Right" />
-            <TextBox x:Name="PathTextBox" Text="..\src" />
+            <TextBox
+                x:Name="DefaultLanguageTextBox"
+                DockPanel.Dock="Right"
+                Text="zh-cn" />
+            <Rectangle
+                Width="10"
+                Height="10"
+                DockPanel.Dock="Right" />
+            <TextBlock DockPanel.Dock="Right" Text="Default:" />
+            <Rectangle
+                Width="10"
+                Height="10"
+                DockPanel.Dock="Right" />
+            <TextBox x:Name="PathTextBox" Text="..\..\..\..\..\Pixeval\src\Pixeval\Strings" />
         </DockPanel>
         <Rectangle
             Width="10"
@@ -57,10 +73,10 @@
                         <HierarchicalDataTemplate DataType="{x:Type local:ResourceFileItem}" ItemsSource="{Binding ResourceItems.Values}">
                             <HierarchicalDataTemplate.ItemTemplate>
                                 <DataTemplate DataType="{x:Type local:ResourceItem}">
-                                    <TextBlock Background="{Binding Existed, Converter={StaticResource RedWhenFalseConverter}}" Text="{Binding Name}" />
+                                    <TextBlock Background="{Binding Existed, Converter={StaticResource ExistedToTypeConverter}}" Text="{Binding Name}" />
                                 </DataTemplate>
                             </HierarchicalDataTemplate.ItemTemplate>
-                            <TextBlock Background="{Binding Existed, Converter={StaticResource RedWhenFalseConverter}}" Text="{Binding DisplayName}" />
+                            <TextBlock Background="{Binding Existed, Converter={StaticResource ExistedToTypeConverter}}" Text="{Binding DisplayName}" />
                         </HierarchicalDataTemplate>
                     </HierarchicalDataTemplate.ItemTemplate>
                     <TextBlock Text="{Binding DisplayName}" />
